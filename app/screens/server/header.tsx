@@ -27,7 +27,7 @@ const getStyleSheet = makeStyleSheetFromTheme((theme: Theme) => ({
         ...typography('Heading', 400, 'SemiBold'),
     },
     connect: {
-        width: 300,
+        width: 450,
         letterSpacing: -1,
         color: theme.centerChannelColor,
         marginVertical: 12,
@@ -52,16 +52,22 @@ const ServerHeader = ({additionalServer, theme}: Props) => {
             <FormattedText
                 defaultMessage='Add a server'
                 id='servers.create_button'
-                style={[styles.connect, isTablet ? styles.connectTablet : undefined]}
+                style={[
+                    styles.connect,
+                    isTablet ? styles.connectTablet : undefined,
+                ]}
                 testID='server_header.title.add_server'
             />
         );
     } else {
         title = (
             <FormattedText
-                defaultMessage='Let’s Connect to a Server'
+                defaultMessage='SICI Vault Platform'
                 id='mobile.components.select_server_view.msg_connect'
-                style={[styles.connect, isTablet ? styles.connectTablet : undefined]}
+                style={[
+                    styles.connect,
+                    isTablet ? styles.connectTablet : undefined,
+                ]}
                 testID='server_header.title.connect_to_server'
             />
         );
@@ -69,17 +75,17 @@ const ServerHeader = ({additionalServer, theme}: Props) => {
 
     return (
         <View style={styles.textContainer}>
-            {!additionalServer &&
-            <FormattedText
-                defaultMessage='Welcome'
-                id='mobile.components.select_server_view.msg_welcome'
-                testID='server_header.welcome'
-                style={styles.welcome}
-            />
-            }
+            {!additionalServer && (
+                <FormattedText
+                    defaultMessage='Welcome'
+                    id='mobile.components.select_server_view.msg_welcome'
+                    testID='server_header.welcome'
+                    style={styles.welcome}
+                />
+            )}
             {title}
             <FormattedText
-                defaultMessage="A server is your team's communication hub accessed using a unique URL"
+                defaultMessage='Sistema de Comunicacion Interna'
                 id='mobile.components.select_server_view.msg_description'
                 style={styles.description}
                 testID='server_header.description'

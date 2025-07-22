@@ -11,6 +11,15 @@ const defaultConfig = getDefaultConfig(__dirname);
  *
  * @type {import('metro-config').MetroConfig}
  */
-const config = {};
+const config = {
+  resolver: {
+    alias: {
+      // Polyfill Node.js modules for React Native
+      events: 'events',
+      stream: 'stream-browserify',
+      util: 'util',
+    },
+  },
+};
 
 module.exports = mergeConfig(defaultConfig, config);
