@@ -1,18 +1,18 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import React, {useCallback} from 'react';
-import {StyleSheet, View} from 'react-native';
+import React, { useCallback } from "react";
+import { StyleSheet, View } from "react-native";
 
-import ChannelInfoStartButton from '@calls/components/channel_info_start';
-import AddMembersBox from '@components/channel_actions/add_members_box';
-import CopyChannelLinkBox from '@components/channel_actions/copy_channel_link_box';
-import FavoriteBox from '@components/channel_actions/favorite_box';
-import MutedBox from '@components/channel_actions/mute_box';
-import SetHeaderBox from '@components/channel_actions/set_header_box';
-import {useServerUrl} from '@context/server';
-import {dismissBottomSheet} from '@screens/navigation';
-import {isTypeDMorGM} from '@utils/channel';
+import AddMembersBox from "@components/channel_actions/add_members_box";
+import ChannelInfoStartButton from "@calls/components/channel_info_start";
+import CopyChannelLinkBox from "@components/channel_actions/copy_channel_link_box";
+import FavoriteBox from "@components/channel_actions/favorite_box";
+import MutedBox from "@components/channel_actions/mute_box";
+import SetHeaderBox from "@components/channel_actions/set_header_box";
+import { dismissBottomSheet } from "@screens/navigation";
+import { isTypeDMorGM } from "@utils/channel";
+import { useServerUrl } from "@context/server";
 
 type Props = {
     channelId: string;
@@ -22,13 +22,13 @@ type Props = {
     callsEnabled: boolean;
     testID?: string;
     canManageMembers: boolean;
-}
+};
 
 export const CHANNEL_ACTIONS_OPTIONS_HEIGHT = 62;
 
 const styles = StyleSheet.create({
     wrapper: {
-        flexDirection: 'row',
+        flexDirection: "row",
         height: CHANNEL_ACTIONS_OPTIONS_HEIGHT,
     },
     separator: {
@@ -64,47 +64,37 @@ const ChannelActions = ({
                 showSnackBar={!inModal}
                 testID={testID}
             />
-            <View style={styles.separator}/>
+            <View style={styles.separator} />
             <MutedBox
                 channelId={channelId}
                 showSnackBar={!inModal}
                 testID={testID}
             />
-            <View style={styles.separator}/>
-            {isDM &&
+            <View style={styles.separator} />
+            {isDM && (
                 <SetHeaderBox
                     channelId={channelId}
                     inModal={inModal}
                     testID={`${testID}.set_header.action`}
                 />
-            }
-            {canManageMembers &&
+            )}
+            {canManageMembers && (
                 <AddMembersBox
                     channelId={channelId}
                     inModal={inModal}
                     testID={`${testID}.add_members.action`}
                 />
-            }
-            {!isDM && !callsEnabled &&
+            )}
+            {!isDM && !callsEnabled && (
                 <>
-                    <View style={styles.separator}/>
+                    <View style={styles.separator} />
                     <CopyChannelLinkBox
                         channelId={channelId}
                         onAnimationEnd={onCopyLinkAnimationEnd}
                         testID={`${testID}.copy_channel_link.action`}
                     />
                 </>
-            }
-            {callsEnabled &&
-                <>
-                    <View style={styles.separator}/>
-                    <ChannelInfoStartButton
-                        serverUrl={serverUrl}
-                        channelId={channelId}
-                        dismissChannelInfo={dismissChannelInfo}
-                    />
-                </>
-            }
+            )}
         </View>
     );
 };

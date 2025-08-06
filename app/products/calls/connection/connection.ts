@@ -1,39 +1,61 @@
 // Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import {RTCMonitor, RTCPeer, parseRTCStats} from '@mattermost/calls/lib';
-import {hasDCSignalingLockSupport} from '@mattermost/calls/lib/utils';
-import {zlibSync, strToU8} from 'fflate';
-import {DeviceEventEmitter, type EmitterSubscription, NativeEventEmitter, NativeModules, Platform} from 'react-native';
-import InCallManager from 'react-native-incall-manager';
-import {mediaDevices, MediaStream, MediaStreamTrack, registerGlobals, RTCSessionDescription} from 'react-native-webrtc';
+import { RTCMonitor, RTCPeer, parseRTCStats } from "@mattermost/calls/lib";
+import { hasDCSignalingLockSupport } from "@mattermost/calls/lib/utils";
+import { zlibSync, strToU8 } from "fflate";
+import {
+    DeviceEventEmitter,
+    type EmitterSubscription,
+    NativeEventEmitter,
+    NativeModules,
+    Platform,
+} from "react-native";
+import InCallManager from "react-native-incall-manager";
+import {
+    mediaDevices,
+    MediaStream,
+    MediaStreamTrack,
+    registerGlobals,
+    RTCSessionDescription,
+} from "react-native-webrtc";
 
-import {setPreferredAudioRoute, setSpeakerphoneOn} from '@calls/actions/calls';
+import {
+    setPreferredAudioRoute,
+    setSpeakerphoneOn,
+} from "@calls/actions/calls";
 import {
     foregroundServiceStart,
     foregroundServiceStop,
     foregroundServiceSetup,
-} from '@calls/connection/foreground_service';
-import {processMeanOpinionScore, setAudioDeviceInfo} from '@calls/state';
-import {AudioDevice, type AudioDeviceInfo, type AudioDeviceInfoRaw, type CallsConnection} from '@calls/types/calls';
-import {getICEServersConfigs} from '@calls/utils';
-import {WebsocketEvents} from '@constants';
-import {getServerCredentials} from '@init/credentials';
-import NetworkManager from '@managers/network_manager';
-import {getErrorMessage, getFullErrorMessage} from '@utils/errors';
-import {logDebug, logError, logInfo, logWarning} from '@utils/log';
+} from "@calls/connection/foreground_service";
+import { processMeanOpinionScore, setAudioDeviceInfo } from "@calls/state";
+import {
+    AudioDevice,
+    type AudioDeviceInfo,
+    type AudioDeviceInfoRaw,
+    type CallsConnection,
+} from "@calls/types/calls";
+import { getICEServersConfigs } from "@calls/utils";
+import { WebsocketEvents } from "@constants";
+import { getServerCredentials } from "@init/credentials";
+import NetworkManager from "@managers/network_manager";
+import { getErrorMessage, getFullErrorMessage } from "@utils/errors";
+import { logDebug, logError, logInfo, logWarning } from "@utils/log";
 
-import {WebSocketClient, wsReconnectionTimeoutErr} from './websocket_client';
+import { WebSocketClient, wsReconnectionTimeoutErr } from "./websocket_client";
 
-import type {EmojiData} from '@mattermost/calls/lib/types';
+import type { EmojiData } from "@mattermost/calls/lib/types";
 
 const peerConnectTimeout = 5000;
 const rtcMonitorInterval = 10000;
 
-const InCallManagerEmitter = new NativeEventEmitter(NativeModules.InCallManager);
+const InCallManagerEmitter = new NativeEventEmitter(
+    NativeModules.InCallManager
+);
 
 // Setup the foreground service channel
-if (Platform.OS === 'android') {
+if (Platform.OS === "android") {
     foregroundServiceSetup();
 }
 
@@ -44,7 +66,7 @@ export async function newConnection(
     setScreenShareURL: (url: string) => void,
     hasMicPermission: boolean,
     title?: string,
-    rootId?: string,
+    rootId?: string
 ) {
     let peer: RTCPeer | null = null;
     let stream: MediaStream;
@@ -69,15 +91,15 @@ export async function newConnection(
         }
 
         try {
-            stream = await mediaDevices.getUserMedia({
+            stream = (await mediaDevices.getUserMedia({
                 video: false,
                 audio: true,
-            }) as MediaStream;
+            })) as MediaStream;
             voiceTrack = stream.getAudioTracks()[0];
             voiceTrack.enabled = false;
             streams.push(stream);
         } catch (err) {
-            logError('calls: unable to get media device:', err);
+            logError("calls: unable to get media device:", err);
         }
     };
 
@@ -91,21 +113,34 @@ export async function newConnection(
     let config;
     let version;
     try {
-        [config, version] = await Promise.all([client.getCallsConfig(), client.getVersion()]);
+        [config, version] = await Promise.all([
+            client.getCallsConfig(),
+            client.getVersion(),
+        ]);
     } catch (err) {
-        throw new Error(`calls: fetching calls config and version info: ${getFullErrorMessage(err)}`);
+        throw new Error(
+            `calls: fetching calls config and version info: ${getFullErrorMessage(
+                err
+            )}`
+        );
     }
 
     let av1Support = false;
     if (config.EnableAV1 && !config.EnableSimulcast) {
         try {
-            av1Support = Boolean(await RTCPeer.getVideoCodec('video/AV1'));
+            av1Support = Boolean(await RTCPeer.getVideoCodec("video/AV1"));
         } catch (err) {
-            throw new Error(`calls: failed to check AV1 support: ${getErrorMessage(err)}`);
+            throw new Error(
+                `calls: failed to check AV1 support: ${getErrorMessage(err)}`
+            );
         }
     }
 
-    const ws = new WebSocketClient(serverUrl, client.getWebSocketUrl(), credentials?.token);
+    const ws = new WebSocketClient(
+        serverUrl,
+        client.getWebSocketUrl(),
+        credentials?.token
+    );
 
     // Throws an error, to be caught by caller.
     await ws.initialize();
@@ -120,7 +155,7 @@ export async function newConnection(
         }
         isClosed = true;
 
-        ws.send('leave');
+        ws.send("leave");
         ws.close();
         rtcMonitor?.stop();
 
@@ -142,7 +177,7 @@ export async function newConnection(
         audioDeviceChanged?.remove();
         wiredHeadsetEvent?.remove();
 
-        if (Platform.OS === 'android') {
+        if (Platform.OS === "android") {
             foregroundServiceStop();
         }
 
@@ -151,11 +186,14 @@ export async function newConnection(
         }
     };
 
-    onCallEnd = DeviceEventEmitter.addListener(WebsocketEvents.CALLS_CALL_END, ({channelId}: { channelId: string }) => {
-        if (channelId === channelID) {
-            disconnect();
+    onCallEnd = DeviceEventEmitter.addListener(
+        WebsocketEvents.CALLS_CALL_END,
+        ({ channelId }: { channelId: string }) => {
+            if (channelId === channelID) {
+                disconnect();
+            }
         }
-    });
+    );
 
     const mute = () => {
         if (!peer || !voiceTrack) {
@@ -167,13 +205,13 @@ export async function newConnection(
                 peer.replaceTrack(voiceTrack.id, null);
             }
         } catch (e) {
-            logError('calls: from RTCPeer, error on mute:', e);
+            logError("calls: from RTCPeer, error on mute:", e);
             return;
         }
 
         voiceTrack.enabled = false;
         if (ws) {
-            ws.send('mute');
+            ws.send("mute");
         }
     };
 
@@ -198,31 +236,31 @@ export async function newConnection(
                 voiceTrackAdded = true;
             }
         } catch (e) {
-            logError('calls: from RTCPeer, error on unmute:', e);
+            logError("calls: from RTCPeer, error on unmute:", e);
             return;
         }
 
         voiceTrack.enabled = true;
         if (ws) {
-            ws.send('unmute');
+            ws.send("unmute");
         }
     };
 
     const raiseHand = () => {
         if (ws) {
-            ws.send('raise_hand');
+            ws.send("raise_hand");
         }
     };
 
     const unraiseHand = () => {
         if (ws) {
-            ws.send('unraise_hand');
+            ws.send("unraise_hand");
         }
     };
 
     const sendReaction = (emoji: EmojiData) => {
         if (ws) {
-            ws.send('react', {
+            ws.send("react", {
                 data: JSON.stringify(emoji),
             });
         }
@@ -230,7 +268,7 @@ export async function newConnection(
 
     const collectICEStats = () => {
         const start = Date.now();
-        const seenMap: {[key: string]: string} = {};
+        const seenMap: { [key: string]: string } = {};
 
         const gatherStats = async () => {
             if (!peer) {
@@ -245,10 +283,16 @@ export async function newConnection(
                         seenMap[pair.id] = pair.state;
 
                         if (seenState !== pair.state) {
-                            logDebug('calls: ice candidate pair stats', JSON.stringify(pair));
+                            logDebug(
+                                "calls: ice candidate pair stats",
+                                JSON.stringify(pair)
+                            );
                         }
 
-                        if (seenState === 'succeeded' || state !== 'succeeded') {
+                        if (
+                            seenState === "succeeded" ||
+                            state !== "succeeded"
+                        ) {
                             continue;
                         }
 
@@ -256,8 +300,8 @@ export async function newConnection(
                             continue;
                         }
 
-                        ws.send('metric', {
-                            metric_name: 'client_ice_candidate_pair',
+                        ws.send("metric", {
+                            metric_name: "client_ice_candidate_pair",
                             data: JSON.stringify({
                                 state: pair.state,
                                 local: {
@@ -273,7 +317,7 @@ export async function newConnection(
                     }
                 }
             } catch (err) {
-                logError('failed to parse ICE stats', err);
+                logError("failed to parse ICE stats", err);
             }
 
             // Repeat the check for at most 30 seconds.
@@ -286,47 +330,60 @@ export async function newConnection(
         gatherStats();
     };
 
-    ws.on('error', (err: Error) => {
-        logDebug('calls: ws error', err);
+    ws.on("error", (err: Error) => {
+        logDebug("calls: ws error", err);
         if (err === wsReconnectionTimeoutErr) {
             disconnect();
         }
     });
 
-    ws.on('close', (event: WebSocketCloseEvent) => {
-        logDebug('calls: ws close, code:', event?.code, 'reason:', event?.reason, 'message:', event?.message);
+    ws.on("close", (event: WebSocketCloseEvent) => {
+        logDebug(
+            "calls: ws close, code:",
+            event?.code,
+            "reason:",
+            event?.reason,
+            "message:",
+            event?.message
+        );
     });
 
-    ws.on('open', (originalConnID: string, prevConnID: string, isReconnect: boolean) => {
-        if (isReconnect) {
-            logDebug('calls: ws reconnect, sending reconnect msg');
-            ws.send('reconnect', {
-                channelID,
-                originalConnID,
-                prevConnID,
-            });
-        } else {
-            logDebug('calls: ws open, sending join msg');
+    ws.on(
+        "open",
+        (originalConnID: string, prevConnID: string, isReconnect: boolean) => {
+            if (isReconnect) {
+                logDebug("calls: ws reconnect, sending reconnect msg");
+                ws.send("reconnect", {
+                    channelID,
+                    originalConnID,
+                    prevConnID,
+                });
+            } else {
+                logDebug("calls: ws open, sending join msg");
 
-            ws.send('join', {
-                channelID,
-                title,
-                threadID: rootId,
-                av1Support,
-                dcSignaling: config.EnableDCSignaling,
-            });
+                ws.send("join", {
+                    channelID,
+                    title,
+                    threadID: rootId,
+                    av1Support,
+                    dcSignaling: config.EnableDCSignaling,
+                });
+            }
         }
-    });
+    );
 
-    ws.on('join', async () => {
-        logDebug('calls: join ack received, initializing connection');
+    ws.on("join", async () => {
+        logDebug("calls: join ack received, initializing connection");
 
         const iceConfigs = getICEServersConfigs(config);
         if (config.NeedsTURNCredentials) {
             try {
-                iceConfigs.push(...await client.genTURNCredentials());
+                iceConfigs.push(...(await client.genTURNCredentials()));
             } catch (err) {
-                logWarning('calls: failed to fetch TURN credentials:', getFullErrorMessage(err));
+                logWarning(
+                    "calls: failed to fetch TURN credentials:",
+                    getFullErrorMessage(err)
+                );
             }
         }
 
@@ -336,45 +393,58 @@ export async function newConnection(
         let btInitialized = false;
         let speakerInitialized = false;
 
-        if (Platform.OS === 'android') {
-            audioDeviceChanged = DeviceEventEmitter.addListener('onAudioDeviceChanged', (data: AudioDeviceInfoRaw) => {
-                const info: AudioDeviceInfo = {
-                    availableAudioDeviceList: JSON.parse(data.availableAudioDeviceList),
-                    selectedAudioDevice: data.selectedAudioDevice,
-                };
-                setAudioDeviceInfo(info);
-                logDebug('calls: AudioDeviceChanged, info:', info);
+        if (Platform.OS === "android") {
+            audioDeviceChanged = DeviceEventEmitter.addListener(
+                "onAudioDeviceChanged",
+                (data: AudioDeviceInfoRaw) => {
+                    const info: AudioDeviceInfo = {
+                        availableAudioDeviceList: JSON.parse(
+                            data.availableAudioDeviceList
+                        ),
+                        selectedAudioDevice: data.selectedAudioDevice,
+                    };
+                    setAudioDeviceInfo(info);
+                    logDebug("calls: AudioDeviceChanged, info:", info);
 
-                // Auto switch to bluetooth the first time we connect to bluetooth, but not after.
-                if (!btInitialized) {
-                    if (info.availableAudioDeviceList.includes(AudioDevice.Bluetooth)) {
-                        setPreferredAudioRoute(AudioDevice.Bluetooth);
-                        btInitialized = true;
-                    } else if (!speakerInitialized) {
-                        // If we don't have bluetooth available, default to speakerphone on.
-                        setPreferredAudioRoute(AudioDevice.Speakerphone);
-                        speakerInitialized = true;
+                    // Auto switch to bluetooth the first time we connect to bluetooth, but not after.
+                    if (!btInitialized) {
+                        if (
+                            info.availableAudioDeviceList.includes(
+                                AudioDevice.Bluetooth
+                            )
+                        ) {
+                            setPreferredAudioRoute(AudioDevice.Bluetooth);
+                            btInitialized = true;
+                        } else if (!speakerInitialized) {
+                            // If we don't have bluetooth available, default to speakerphone on.
+                            InCallManager.startProximitySensor();
+                            setPreferredAudioRoute(AudioDevice.Earpiece);
+                            speakerInitialized = true;
+                        }
                     }
                 }
-            });
+            );
 
             // To allow us to use microphone in the background
             await foregroundServiceStart();
         }
 
         // We default to speakerphone, but not if the WiredHeadset is plugged in.
-        if (Platform.OS === 'ios') {
-            wiredHeadsetEvent = InCallManagerEmitter.addListener('WiredHeadset', (data) => {
-                // Log for customer debugging. For the moment we're not changing output labels because of incall-manager iOS
-                // limitations with how it reports Bluetooth -- namely that it doesn't, so we don't know when Bluetooth is
-                // overriding the earpiece and/or headset.
-                logDebug('calls: WiredHeadset plugged in, data:', data);
+        if (Platform.OS === "ios") {
+            wiredHeadsetEvent = InCallManagerEmitter.addListener(
+                "WiredHeadset",
+                (data) => {
+                    // Log for customer debugging. For the moment we're not changing output labels because of incall-manager iOS
+                    // limitations with how it reports Bluetooth -- namely that it doesn't, so we don't know when Bluetooth is
+                    // overriding the earpiece and/or headset.
+                    logDebug("calls: WiredHeadset plugged in, data:", data);
 
-                // iOS switches to the headset when we connect it, so turn off speakerphone to keep UI in sync.
-                if (data.isPlugged) {
-                    setSpeakerphoneOn(false);
+                    // iOS switches to the headset when we connect it, so turn off speakerphone to keep UI in sync.
+                    if (data.isPlugged) {
+                        setSpeakerphoneOn(false);
+                    }
                 }
-            });
+            );
 
             // If headset is plugged in when the call starts, use it.
             const report = await InCallManager.getIsWiredHeadsetPluggedIn();
@@ -399,7 +469,7 @@ export async function newConnection(
             logger,
             monitorInterval: rtcMonitorInterval,
         });
-        rtcMonitor.on('mos', processMeanOpinionScore);
+        rtcMonitor.on("mos", processMeanOpinionScore);
 
         const sdpHandler = (sdp: RTCSessionDescription) => {
             const payload = JSON.stringify(sdp);
@@ -407,30 +477,34 @@ export async function newConnection(
             // SDP data is compressed using zlib since it's text based
             // and can grow substantially, potentially hitting the maximum
             // message size (8KB).
-            ws.send('sdp', {
-                data: zlibSync(strToU8(payload)),
-            }, true);
+            ws.send(
+                "sdp",
+                {
+                    data: zlibSync(strToU8(payload)),
+                },
+                true
+            );
         };
-        peer.on('offer', sdpHandler);
-        peer.on('answer', sdpHandler);
+        peer.on("offer", sdpHandler);
+        peer.on("answer", sdpHandler);
 
-        peer.on('candidate', (candidate) => {
-            ws.send('ice', {
+        peer.on("candidate", (candidate) => {
+            ws.send("ice", {
                 data: JSON.stringify(candidate),
             });
         });
 
-        peer.on('error', (err: any) => {
-            logError('calls: peer error:', err);
+        peer.on("error", (err: any) => {
+            logError("calls: peer error:", err);
             if (!isClosed) {
                 disconnect();
             }
         });
 
-        peer.on('stream', (remoteStream: MediaStream) => {
-            logDebug('calls: new remote stream received', remoteStream.id);
+        peer.on("stream", (remoteStream: MediaStream) => {
+            logDebug("calls: new remote stream received", remoteStream.id);
             for (const track of remoteStream.getTracks()) {
-                logDebug('calls: remote track', track.id);
+                logDebug("calls: remote track", track.id);
             }
 
             streams.push(remoteStream);
@@ -439,28 +513,36 @@ export async function newConnection(
             }
         });
 
-        peer.on('close', () => {
-            logDebug('calls: peer closed');
+        peer.on("close", () => {
+            logDebug("calls: peer closed");
             if (!isClosed) {
                 disconnect();
             }
         });
     });
 
-    ws.on('message', ({data}: { data: string }) => {
+    ws.on("message", ({ data }: { data: string }) => {
         const msg = JSON.parse(data);
         if (!msg) {
             return;
         }
-        if (msg.type === 'answer' || msg.type === 'candidate' || msg.type === 'offer') {
+        if (
+            msg.type === "answer" ||
+            msg.type === "candidate" ||
+            msg.type === "offer"
+        ) {
             peer?.signal(data);
         }
     });
 
     const waitForPeerConnection = () => {
-        const waitForReadyImpl = (callback: () => void, fail: (reason: string) => void, timeout: number) => {
+        const waitForReadyImpl = (
+            callback: () => void,
+            fail: (reason: string) => void,
+            timeout: number
+        ) => {
             if (timeout <= 0) {
-                fail('timed out waiting for peer connection');
+                fail("timed out waiting for peer connection");
                 return;
             }
             setTimeout(() => {
