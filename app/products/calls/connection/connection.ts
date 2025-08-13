@@ -37,9 +37,13 @@ import {
     type CallsConnection,
 } from "@calls/types/calls";
 import { getICEServersConfigs } from "@calls/utils";
-import { WebsocketEvents } from "@constants";
+import { Screens, WebsocketEvents } from "@constants";
 import { getServerCredentials } from "@init/credentials";
 import NetworkManager from "@managers/network_manager";
+import {
+    allOrientations,
+    dismissAllModalsAndPopToScreen,
+} from "@screens/navigation";
 import { getErrorMessage, getFullErrorMessage } from "@utils/errors";
 import { logDebug, logError, logInfo, logWarning } from "@utils/log";
 
@@ -519,6 +523,32 @@ export async function newConnection(
                 disconnect();
             }
         });
+
+        // Navigate to call screen automatically when call is initialized
+        setTimeout(() => {
+            const options = {
+                layout: {
+                    backgroundColor: "#000",
+                    componentBackgroundColor: "#000",
+                    orientation: allOrientations,
+                },
+                topBar: {
+                    background: {
+                        color: "#000",
+                    },
+                    visible: Platform.OS === "android",
+                },
+            };
+            const callTitle = "Call";
+            dismissAllModalsAndPopToScreen(
+                Screens.CALL,
+                callTitle,
+                { fromThreadScreen: false },
+                options
+            ).catch((err) => {
+                logError("calls: failed to navigate to call screen:", err);
+            });
+        }, 500); // Small delay to ensure call state is fully initialized
     });
 
     ws.on("message", ({ data }: { data: string }) => {
